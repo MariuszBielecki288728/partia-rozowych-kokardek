@@ -1,8 +1,6 @@
-BEGIN;
-
 CREATE TABLE member (
   member_id int PRIMARY KEY,
-  password bytea NOT NULL,
+  password text NOT NULL,
   upvoted_count int DEFAULT 0,
   downvoted_count int DEFAULT 0,
   last_act_time timestamp NOT NULL
@@ -50,9 +48,3 @@ CREATE TABLE member_votes_for (
 CREATE TABLE all_id (
   id int PRIMARY KEY
 );
-
-INSERT INTO all_id VALUES (123);
-SELECT * FROM all_id
-
-
-ROLLBACK;

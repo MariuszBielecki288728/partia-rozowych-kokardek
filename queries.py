@@ -1,5 +1,5 @@
 ADD_MEMBER = """
-INSERT INTO member (member_id, password, last_asc_time)
+INSERT INTO member (member_id, password, last_act_time)
     VALUES (
         %(member_id)s,
         crypt(%(password)s, gen_salt('bf')),

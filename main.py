@@ -4,7 +4,7 @@ import sys
 import psycopg2
 import typing
 from pprint import pprint
-
+import logging
 import queries
 
 parser = argparse.ArgumentParser()
@@ -15,7 +15,6 @@ class API:
 
     def __init__(self, init_mode: bool):
         self.init_mode = init_mode
-
 
     @staticmethod
     def _success() -> dict:
@@ -33,15 +32,22 @@ class API:
             self.conn = psycopg2.connect(
                 dbname=database, user=login, password=password)
         except psycopg2.Error as e:
-            return self._error(f"{e}")
+            return self._error(str(e))
         if not self.init_mode:
+            print("program in non-init mode, open won't prepare db")
             return self._success()
+
         cur = self.conn.cursor()
+            
         try:
+            with open("drop.pgsql", "r") as f:
+                cur.execute(f.read())
             with open("prepare_database.pgsql", "r") as f:
                 cur.execute(f.read())
         finally:
             cur.close()
+        self.conn.commit()
+        return self._success()
 
     def leader(self, timestamp: int, password: str, member: int):
         if not self.init_mode:
@@ -52,13 +58,15 @@ class API:
                         {
                             "member_id": member,
                             "password": password,
-                            "timestamp": timestamp})
+                            "timestamp": timestamp
+                        })
             cur.execute(queries.ADD_LEADER,
                         {
                             "member_id": member
                         })
         except psycopg2.Error as e:
             self.conn.rollback()
+            print("error occured in leader", e)
             return self._error(e.pgerror)
         else:
             self.conn.commit()
