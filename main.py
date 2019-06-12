@@ -45,13 +45,10 @@ class API:
 
     def _prepare_database(self):
         with self.conn.cursor() as cursor:
-            print("dropping existing tables...")
             with open("drop.pgsql", "r") as f:
                 cursor.execute(f.read())
-            print("no error. Preparing database...")
             with open("prepare_database.pgsql", "r") as f:
                 cursor.execute(f.read())
-            print("no error.")
 
     def leader(self, timestamp: int, password: str, member: int):
         if not self.init_mode:
@@ -70,50 +67,23 @@ class API:
             cursor.execute(queries.ADD_LEADER, {"member_id": member})
         return None
 
-    def support(self,
-                timestamp,
-                member,
-                password,
-                action,
-                project,
-                authority=None):
-        self._action(timestamp,
-                     member,
-                     password,
-                     action,
-                     project,
-                     authority,
+    def support(self, timestamp, member, password,
+                action, project, authority=None):
+        self._action(timestamp, member, password,
+                     action, project, authority,
                      is_support=True)
         return None
 
-    def protest(self,
-                timestamp,
-                member,
-                password,
-                action,
-                project,
-                authority=None):
-        self._action(
-            timestamp,
-            member,
-            password,
-            action,
-            project,
-            authority,
-            is_support=False,
-        )
+    def protest(self, timestamp, member, password,
+                action, project, authority=None):
+        self._action(timestamp, member, password,
+                     action, project, authority,
+                     is_support=False,)
         return None
 
-    def _action(
-            self,
-            timestamp: int,
-            member: int,
-            password: str,
-            action: int,
-            project: int,
-            authority: typing.Optional[int],
-            is_support: bool,
-    ):
+    def _action(self, timestamp: int, member: int, password: str,
+                action: int, project: int, authority: typing.Optional[int],
+                is_support: bool,):
 
         self._handle_member(member, password, timestamp)
 
@@ -128,17 +98,22 @@ class API:
 
         return None
 
-    def _handle_member(self, member, password, timestamp):
+    def _handle_member(self, member, password,
+                       timestamp, should_be_leader=False):
         if self._is_member(member):
-            print(f"{member} is a member!")
             if not self._is_member_active(member, timestamp):
                 raise Exception(f"member {member} is frozen")
 
             if not self._validate(member, password):
                 raise Exception(f"password authorization failed for {member}")
+
+            if not self._is_member_leader(member) and should_be_leader:
+                raise Exception(f"member {member} shoud be leader")
+
             self._update_member_last_act(member, timestamp)
         else:
-            print(f"id {member} is not a member")
+            if should_be_leader:
+                raise Exception(f"leader with id {member} doesn't exist")
             self._add_member(timestamp, member, password)
 
     def _is_member(self, member):
@@ -169,12 +144,21 @@ class API:
 
     def _validate(self, member, password):
         with self.conn.cursor() as cursor:
-            cursor.execute(queries.VALIDATE_PASSWORD, {
-                "password": password,
-                "member_id": member
-            })
+            cursor.execute(queries.VALIDATE_PASSWORD,
+                           {
+                               "password": password,
+                               "member_id": member
+                           })
             (result) = cursor.fetchone()
-        return result
+        return result[0]
+
+    def _is_member_leader(self, member):
+        with self.conn.cursor() as cursor:
+            cursor.execute(queries.FIND_LEADER,
+                           {
+                               "member_id": member
+                           })
+            return bool(cursor.fetchone())
 
     def _add_member(self, timestamp, member, password):
         with self.conn.cursor() as cursor:
@@ -230,8 +214,9 @@ class API:
 
     def _vote(self, timestamp, member, password, action, value):
         self._handle_member(member, password, timestamp)
+        count_name = {-1: "downvoted_count", 1: "upvoted_count"}
         with self.conn.cursor() as cursor:
-            cursor.execute(queries.ADD_VOTE, {
+            cursor.execute(queries.ADD_VOTE.format(count_name[value]), {
                 "member_id": member,
                 "action_id": action,
                 "value": value
@@ -242,21 +227,34 @@ class API:
         if project and authority:
             raise Exception(
                 "project and authority can't be passed to actions together")
-        cond = " AND ".join(
-            elem[0] for elem in 
+        self._handle_member(member, password, timestamp, should_be_leader=True)
+
+        conds = " AND ".join(
+            cond for cond, provided in
                 [("support = %(is_support)s", type),
                  ("project_id = %(project_id)s", project),
-                 ("authority_id = %(authority_id)s", authority)] if elem[1])
+                 ("authority_id = %(authority_id)s", authority)] if provided)
 
         with self.conn.cursor() as cursor:
             cursor.execute(
-                queries.SELECT_ACTIONS.format("WHERE" if cond else '', cond),
+                queries.SELECT_ACTIONS.format("WHERE" if conds else '', conds),
                 {
                     "is_support": type == "support",
                     "project_id": project,
                     "aauthority_id": authority
                 }
             )
+            return cursor.fetchall()
+
+    def projects(self, timestamp, member, password, authority=None):
+        self._handle_member(member, password, timestamp, should_be_leader=True)
+
+        cond = "WHERE authority_id=%(authority_id)s" if authority else ''
+        with self.conn.cursor() as cursor:
+            cursor.execute(queries.SELECT_PROJECTS.format(cond),
+                           {
+                               "authority_id": authority
+            })
             return cursor.fetchall()
 
     def close(self):

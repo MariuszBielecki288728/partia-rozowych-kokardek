@@ -53,14 +53,28 @@ WHERE member.id = %(member_id)s;
 """
 ADD_VOTE = """
 INSERT INTO member_votes_for VALUES (%(member_id)s, %(action_id)s, %(value)s);
-"""#TODO trigger?
+UPDATE member SET {0} = {0} + 1
+  WHERE member.id=(SELECT owner_id FROM action WHERE action.id=%(action_id)s);
+"""
 
 SELECT_ACTIONS = """
 SELECT action.id, case when support then 'support' else 'protest' end as type, 
        project_id, authority_id, 
        (SELECT COUNT(*) FROM member_votes_for WHERE member_votes_for.action_id = action.id AND value = 1),
        (SELECT COUNT(*) FROM member_votes_for WHERE member_votes_for.action_id = action.id AND value = -1)
-       FROM action JOIN project ON (action.project_id=project.id)
-       {} {}
-       ORDER BY action.id;
+FROM action JOIN project ON (action.project_id=project.id)
+{} {}
+ORDER BY action.id;
+"""
+
+SELECT_PROJECTS = """
+SELECT project.id, authority_id 
+FROM project
+{}
+ORDER BY project.id;
+"""
+
+FIND_LEADER = """
+SELECT * FROM leader 
+WHERE member_id = %(member_id)s;
 """
