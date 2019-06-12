@@ -12,53 +12,54 @@ class API:
     def __init__(self, init_mode: bool):
         self.init_mode = init_mode
 
+    def call(self, api_call: dict):
+        try:
+            [(function, kwargs)] = api_call.items()
+            data = getattr(api, function)(**kwargs)
+        except Exception as e:
+            self.conn.rollback()
+            return self._error(str(e))
+        else:
+            self.conn.commit()
+            return self._success(data)
+
     @staticmethod
-    def _success() -> dict:
-        return {"status": "OK"}
+    def _success(data: typing.Optional[list] = None) -> dict:
+        if data is None:
+            return {"status": "OK"}
+        else:
+            return {"status": "OK", "data": data}
 
     @staticmethod
     def _error(debug: str) -> dict:
         return {"status": "Error", "debug": debug}
 
     def open(self, database: str, login: str, password: str) -> dict:
-        try:
-            self.conn = psycopg2.connect(dbname=database,
-                                         user=login,
-                                         password=password)
-        except psycopg2.Error as e:
-            return self._error(str(e))
+        self.conn = psycopg2.connect(dbname=database,
+                                     user=login,
+                                     password=password)
         if not self.init_mode:
-            return self._success()
-        print("Begin preparation of database")
-        try:
-            self._prepare_database()
-        except psycopg2.Error as e:
-            print("Error occured during database preparation", e)
-            return self._error(str(e))
-        return self._success()
+            return None
+        self._prepare_database()
+        return None
 
     def _prepare_database(self):
-        cur = self.conn.cursor()
-        try:
+        with self.conn.cursor() as cursor:
             print("dropping existing tables...")
             with open("drop.pgsql", "r") as f:
-                cur.execute(f.read())
+                cursor.execute(f.read())
             print("no error. Preparing database...")
             with open("prepare_database.pgsql", "r") as f:
-                cur.execute(f.read())
+                cursor.execute(f.read())
             print("no error.")
-        finally:
-            cur.close()
-        self.conn.commit()
 
     def leader(self, timestamp: int, password: str, member: int):
         if not self.init_mode:
-            return self._error(
+            raise Exception(
                 "unauthorized leader call. Application is running in non-init mode"
             )
-        cur = self.conn.cursor()
-        try:
-            cur.execute(
+        with self.conn.cursor() as cursor:
+            cursor.execute(
                 queries.ADD_MEMBER,
                 {
                     "member_id": member,
@@ -66,15 +67,8 @@ class API:
                     "timestamp": timestamp
                 },
             )
-            cur.execute(queries.ADD_LEADER, {"member_id": member})
-        except psycopg2.Error as e:
-            print("error occured in leader", e)
-            return self._error(str(e))
-        else:
-            self.conn.commit()
-            return self._success()
-        finally:
-            cur.close()
+            cursor.execute(queries.ADD_LEADER, {"member_id": member})
+        return None
 
     def support(self,
                 timestamp,
@@ -83,17 +77,14 @@ class API:
                 action,
                 project,
                 authority=None):
-        try:
-            return self._action(timestamp,
-                                member,
-                                password,
-                                action,
-                                project,
-                                authority,
-                                is_support=True)
-        except psycopg2.Error as e:
-            self.conn.rollback()
-            return self._error(str(e))
+        self._action(timestamp,
+                     member,
+                     password,
+                     action,
+                     project,
+                     authority,
+                     is_support=True)
+        return None
 
     def protest(self,
                 timestamp,
@@ -102,19 +93,16 @@ class API:
                 action,
                 project,
                 authority=None):
-        try:
-            return self._action(
-                timestamp,
-                member,
-                password,
-                action,
-                project,
-                authority,
-                is_support=False,
-            )
-        except psycopg2.Error as e:
-            self.conn.rollback()
-            return self._error(str(e))
+        self._action(
+            timestamp,
+            member,
+            password,
+            action,
+            project,
+            authority,
+            is_support=False,
+        )
+        return None
 
     def _action(
             self,
@@ -131,16 +119,14 @@ class API:
 
         result = self._search_for_project(project)
         if not result and not authority:
-            self.conn.rollback()
-            return self._error("authority not provided")
+            raise Exception("Authority not provided")
         authority = result or authority
         if not result:
             self._add_authority(authority)
             self._add_project(project, authority)
         self._add_action(action, member, is_support, project)
 
-        self.conn.commit()
-        return self._success()
+        return None
 
     def _handle_member(self, member, password, timestamp):
         if self._is_member(member):
@@ -149,8 +135,7 @@ class API:
                 raise Exception(f"member {member} is frozen")
 
             if not self._validate(member, password):
-                return self._error(
-                    f"password authorization failed for {member}")
+                raise Exception(f"password authorization failed for {member}")
             self._update_member_last_act(member, timestamp)
         else:
             print(f"id {member} is not a member")
@@ -235,6 +220,48 @@ class API:
                 "authority_id": authority
             })
 
+    def upvote(self, timestamp, member, password, action):
+        self._vote(timestamp, member, password, action, 1)
+        return None
+
+    def downvote(self, timestamp, member, password, action):
+        self._vote(timestamp, member, password, action, -1)
+        return None
+
+    def _vote(self, timestamp, member, password, action, value):
+        self._handle_member(member, password, timestamp)
+        with self.conn.cursor() as cursor:
+            cursor.execute(queries.ADD_VOTE, {
+                "member_id": member,
+                "action_id": action,
+                "value": value
+            })
+
+    def actions(self, timestamp, member, password,
+                type=None, project=None, authority=None):
+        if project and authority:
+            raise Exception(
+                "project and authority can't be passed to actions together")
+        cond = " AND ".join(
+            elem[0] for elem in 
+                [("support = %(is_support)s", type),
+                 ("project_id = %(project_id)s", project),
+                 ("authority_id = %(authority_id)s", authority)] if elem[1])
+
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                queries.SELECT_ACTIONS.format("WHERE" if cond else '', cond),
+                {
+                    "is_support": type == "support",
+                    "project_id": project,
+                    "aauthority_id": authority
+                }
+            )
+            return cursor.fetchall()
+
+    def close(self):
+        self.conn.close()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -247,7 +274,8 @@ if __name__ == "__main__":
     try:
         for line in sys.stdin:
             api_call = json.loads(line)
-            [(function, kwargs)] = api_call.items()
-            pprint(getattr(api, function)(**kwargs))
+            print(api_call)
+            pprint(api.call(api_call))
+            print()
     finally:
-        api.conn.close()
+        api.close()
