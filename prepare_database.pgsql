@@ -50,6 +50,38 @@ CREATE TABLE all_id (
   id int PRIMARY KEY
 );
 
+
+CREATE OR REPLACE FUNCTION all_id_trigger_function()
+  RETURNS trigger AS
+$BODY$
+BEGIN
+  INSERT INTO all_id VALUES (NEW.id);
+  RETURN NEW;
+END;
+$BODY$ LANGUAGE plpgsql;
+
+CREATE TRIGGER all_id_trigger AFTER INSERT
+   ON member
+   FOR EACH ROW
+   EXECUTE PROCEDURE all_id_trigger_function();
+
+CREATE TRIGGER all_id_trigger AFTER INSERT
+   ON action
+   FOR EACH ROW
+   EXECUTE PROCEDURE all_id_trigger_function();
+
+CREATE TRIGGER all_id_trigger AFTER INSERT
+   ON authority
+   FOR EACH ROW
+   EXECUTE PROCEDURE all_id_trigger_function();
+
+CREATE TRIGGER all_id_trigger AFTER INSERT
+   ON project
+   FOR EACH ROW
+   EXECUTE PROCEDURE all_id_trigger_function();
+
+
+
 CREATE ROLE app WITH encrypted password 'qwerty';
 ALTER ROLE app WITH LOGIN;
 GRANT CONNECT ON DATABASE student TO app;

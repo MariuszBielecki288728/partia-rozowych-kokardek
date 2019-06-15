@@ -97,13 +97,12 @@ SELECT_TROLLS = """
 SELECT member.id,
        upvoted_count, 
        downvoted_count, 
-       (case to_timestamp(%(current_timestamp)s) - last_act_time < interval '1 YEAR' 
-            then 'true' else 'false' end as active_status)
-       FROM member
-       WHERE downvoted_count > upvoted_count
-       ORDER BY 
-           downvoted_count - upvoted_count DESC,
-           member.id ASC;
+       (case when (to_timestamp(%(current_timestamp)s) - last_act_time < interval '1 YEAR') then 'true' else 'false' end) as active_status
+FROM member
+WHERE downvoted_count > upvoted_count
+ORDER BY 
+    downvoted_count - upvoted_count DESC,
+    member.id ASC;
 
 
 """

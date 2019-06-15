@@ -248,7 +248,8 @@ class API:
             )
             return list(map(list, cursor))
 
-    def projects(self, timestamp, member, password, authority=None):
+    def projects(self, timestamp: int, member: int, 
+                 password: str, authority: int = None) -> list:
         self._handle_member(member, password, timestamp, should_be_leader=True)
 
         cond = "WHERE authority_id=%(authority_id)s" if authority else ''
@@ -259,7 +260,8 @@ class API:
                            })
             return list(map(list, cursor))
 
-    def votes(self, timestamp, member, password, action=None, project=None):
+    def votes(self, timestamp:int , member:int , password: str,
+              action: int = None, project: int = None) -> list:
         if action and project:
             raise Exception(
                 "action and project arguments can't be used together")
@@ -272,11 +274,18 @@ class API:
                  ("member_id = member.id", True)] if provided)
 
         with self.conn.cursor() as cursor:
-            print(queries.SELECT_VOTES.format(conds))
             cursor.execute(queries.SELECT_VOTES.format(conds),
                            {
                                "project_id": project,
                                "action_id": action
+                           })
+            return list(map(list, cursor))
+
+    def trolls(self, timestamp: int) -> list:
+        with self.conn.cursor() as cursor:
+            cursor.execute(queries.SELECT_TROLLS,
+                           {
+                               "current_timestamp": timestamp
                            })
             return list(map(list, cursor))
 
