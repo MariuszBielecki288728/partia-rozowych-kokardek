@@ -13,7 +13,7 @@ class API:
     def __init__(self, init_mode: bool):
         self.init_mode = init_mode
 
-    def call(self, api_call: dict):
+    def call(self, api_call: dict) -> dict:
         try:
             [(function, kwargs)] = api_call.items()
             data = getattr(api, function)(**kwargs)
@@ -40,9 +40,8 @@ class API:
                                      user=login,
                                      password=password)
         if not self.init_mode:
-            return None
+            return
         self._prepare_database()
-        return None
 
     def _prepare_database(self):
         with self.conn.cursor() as cursor:
@@ -53,9 +52,8 @@ class API:
 
     def leader(self, timestamp: int, password: str, member: int):
         if not self.init_mode:
-            raise Exception(
-                "unauthorized leader call. Application is running in non-init mode"
-            )
+            raise Exception("unauthorized leader call."
+                            " Application is running in non-init mode")
         with self.conn.cursor() as cursor:
             cursor.execute(
                 queries.ADD_MEMBER,
@@ -175,15 +173,16 @@ class API:
 
     def _search_for_project(self, project: int) -> typing.Optional[int]:
         with self.conn.cursor() as cursor:
-            cursor.execute(queries.FIND_PROJECT, {"project_id": project})
+            cursor.execute(
+                queries.FIND_PROJECT, {"project_id": project})
             result = cursor.fetchmany()
             if result:
                 return result[0][0]
             else:
                 return None
 
-    def _add_action(self, action: int, member: int, is_support: bool,
-                    project: int):
+    def _add_action(self, action: int, member: int,
+                    is_support: bool, project: int):
         with self.conn.cursor() as cursor:
             cursor.execute(
                 queries.ADD_ACTION,
@@ -199,22 +198,25 @@ class API:
         with self.conn.cursor() as cursor:
             cursor.execute(queries.ADD_AUTHORITY, {"authority_id": authority})
 
-    def _add_project(self, project, authority):
+    def _add_project(self, project: int, authority: int):
         with self.conn.cursor() as cursor:
             cursor.execute(queries.ADD_PROJECT, {
                 "project_id": project,
                 "authority_id": authority
             })
 
-    def upvote(self, timestamp, member, password, action):
+    def upvote(self, timestamp: int, member: int,
+               password: str, action: int):
         self._vote(timestamp, member, password, action, 1)
         return None
 
-    def downvote(self, timestamp, member, password, action):
+    def downvote(self, timestamp: int, member: int,
+                 password: str, action: int):
         self._vote(timestamp, member, password, action, -1)
         return None
 
-    def _vote(self, timestamp, member, password, action, value):
+    def _vote(self, timestamp: int, member: int,
+              password: str, action: int, value: int):
         self._handle_member(member, password, timestamp)
         count_name = {-1: "downvoted_count", 1: "upvoted_count"}
         with self.conn.cursor() as cursor:
@@ -224,8 +226,9 @@ class API:
                 "value": value
             })
 
-    def actions(self, timestamp, member, password,
-                type=None, project=None, authority=None):
+    def actions(self, timestamp: int, member: int, password: str,
+                type: str = None, project: int = None,
+                authority: int = None) -> list:
         if project and authority:
             raise Exception(
                 "project and authority arguments can't be used together")
@@ -248,7 +251,7 @@ class API:
             )
             return list(map(list, cursor))
 
-    def projects(self, timestamp: int, member: int, 
+    def projects(self, timestamp: int, member: int,
                  password: str, authority: int = None) -> list:
         self._handle_member(member, password, timestamp, should_be_leader=True)
 
@@ -260,7 +263,7 @@ class API:
                            })
             return list(map(list, cursor))
 
-    def votes(self, timestamp:int , member:int , password: str,
+    def votes(self, timestamp: int, member: int, password: str,
               action: int = None, project: int = None) -> list:
         if action and project:
             raise Exception(

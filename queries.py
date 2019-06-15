@@ -12,7 +12,7 @@ INSERT INTO leader VALUES (%(member_id)s);
 """
 
 VALIDATE_PASSWORD = """
-SELECT password = crypt(%(password)s, password) FROM member 
+SELECT password = crypt(%(password)s, password) FROM member
 WHERE member.id = %(member_id)s;
 """
 
@@ -48,7 +48,7 @@ FROM member WHERE member.id = %(member_id)s;
 """
 
 UPDATE_MEMBER_LAST_ACT = """
-UPDATE member SET last_act_time = to_timestamp(%(timestamp)s) 
+UPDATE member SET last_act_time = to_timestamp(%(timestamp)s)
 WHERE member.id = %(member_id)s;
 """
 ADD_VOTE = """
@@ -58,24 +58,28 @@ UPDATE member SET {0} = {0} + 1
 """
 
 SELECT_ACTIONS = """
-SELECT action.id, case when support then 'support' else 'protest' end as type, 
-       project_id, authority_id, 
-       (SELECT COUNT(*) FROM member_votes_for WHERE member_votes_for.action_id = action.id AND value = 1),
-       (SELECT COUNT(*) FROM member_votes_for WHERE member_votes_for.action_id = action.id AND value = -1)
+SELECT action.id, case when support then 'support' else 'protest' end as type,
+       project_id, authority_id,
+       (SELECT COUNT(*)
+           FROM member_votes_for
+           WHERE member_votes_for.action_id = action.id AND value = 1),
+       (SELECT COUNT(*)
+           FROM member_votes_for
+           WHERE member_votes_for.action_id = action.id AND value = -1)
 FROM action JOIN project ON (action.project_id=project.id)
 {} {}
 ORDER BY action.id;
 """
 
 SELECT_PROJECTS = """
-SELECT project.id, authority_id 
+SELECT project.id, authority_id
 FROM project
 {}
 ORDER BY project.id;
 """
 
 FIND_LEADER = """
-SELECT * FROM leader 
+SELECT * FROM leader
 WHERE member_id = %(member_id)s;
 """
 
@@ -95,14 +99,14 @@ ORDER BY member.id;
 
 SELECT_TROLLS = """
 SELECT member.id,
-       upvoted_count, 
-       downvoted_count, 
-       (case when (to_timestamp(%(current_timestamp)s) - last_act_time < interval '1 YEAR') then 'true' else 'false' end) as active_status
+       upvoted_count,
+       downvoted_count,
+       (case when (to_timestamp(%(current_timestamp)s) - last_act_time
+                   < interval '1 YEAR')
+             then 'true' else 'false' end) as active_status
 FROM member
 WHERE downvoted_count > upvoted_count
-ORDER BY 
+ORDER BY
     downvoted_count - upvoted_count DESC,
     member.id ASC;
-
-
 """
