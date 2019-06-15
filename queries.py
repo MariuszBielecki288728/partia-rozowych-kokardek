@@ -78,3 +78,32 @@ FIND_LEADER = """
 SELECT * FROM leader 
 WHERE member_id = %(member_id)s;
 """
+
+SELECT_VOTES = """
+SELECT member.id,
+       (SELECT COUNT(*) FROM member_votes_for
+            JOIN action ON (action.id=action_id)
+            JOIN project ON (project.id=project_id)
+                WHERE {0} AND value = 1),
+       (SELECT COUNT(*) FROM member_votes_for
+            JOIN action ON (action.id=action_id)
+            JOIN project ON (project.id=project_id)
+                WHERE {0} AND value = -1)
+FROM member
+ORDER BY member.id;
+"""
+
+SELECT_TROLLS = """
+SELECT member.id,
+       upvoted_count, 
+       downvoted_count, 
+       (case to_timestamp(%(current_timestamp)s) - last_act_time < interval '1 YEAR' 
+            then 'true' else 'false' end as active_status)
+       FROM member
+       WHERE downvoted_count > upvoted_count
+       ORDER BY 
+           downvoted_count - upvoted_count DESC,
+           member.id ASC;
+
+
+"""

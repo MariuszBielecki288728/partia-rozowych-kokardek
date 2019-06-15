@@ -9,6 +9,7 @@ import queries
 
 
 class API:
+
     def __init__(self, init_mode: bool):
         self.init_mode = init_mode
 
@@ -91,6 +92,7 @@ class API:
         if not result and not authority:
             raise Exception("Authority not provided")
         authority = result or authority
+
         if not result:
             self._add_authority(authority)
             self._add_project(project, authority)
@@ -226,7 +228,7 @@ class API:
                 type=None, project=None, authority=None):
         if project and authority:
             raise Exception(
-                "project and authority can't be passed to actions together")
+                "project and authority arguments can't be used together")
         self._handle_member(member, password, timestamp, should_be_leader=True)
 
         conds = " AND ".join(
@@ -244,7 +246,7 @@ class API:
                     "aauthority_id": authority
                 }
             )
-            return cursor.fetchall()
+            return list(map(list, cursor))
 
     def projects(self, timestamp, member, password, authority=None):
         self._handle_member(member, password, timestamp, should_be_leader=True)
@@ -254,8 +256,29 @@ class API:
             cursor.execute(queries.SELECT_PROJECTS.format(cond),
                            {
                                "authority_id": authority
-            })
-            return cursor.fetchall()
+                           })
+            return list(map(list, cursor))
+
+    def votes(self, timestamp, member, password, action=None, project=None):
+        if action and project:
+            raise Exception(
+                "action and project arguments can't be used together")
+        self._handle_member(member, password, timestamp, should_be_leader=True)
+
+        conds = " AND ".join(
+            cond for cond, provided in
+                [("project_id = %(project_id)s", project),
+                 ("action_id = %(action_id)s", action),
+                 ("member_id = member.id", True)] if provided)
+
+        with self.conn.cursor() as cursor:
+            print(queries.SELECT_VOTES.format(conds))
+            cursor.execute(queries.SELECT_VOTES.format(conds),
+                           {
+                               "project_id": project,
+                               "action_id": action
+                           })
+            return list(map(list, cursor))
 
     def close(self):
         self.conn.close()
@@ -272,8 +295,6 @@ if __name__ == "__main__":
     try:
         for line in sys.stdin:
             api_call = json.loads(line)
-            print(api_call)
-            pprint(api.call(api_call))
-            print()
+            print(api.call(api_call))
     finally:
         api.close()
