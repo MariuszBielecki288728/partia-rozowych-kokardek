@@ -5,15 +5,20 @@ import psycopg2
 import typing
 from pprint import pprint
 
-import queries
+from queries import queries
 
 
 class API:
-
+    """
+    Api functions of database system
+    """
     def __init__(self, init_mode: bool):
         self.init_mode = init_mode
 
     def call(self, api_call: dict) -> dict:
+        """
+        calls corresponding method with name and arguments passed in api_call
+        """
         try:
             [(function, kwargs)] = api_call.items()
             data = getattr(api, function)(**kwargs)
@@ -35,7 +40,13 @@ class API:
     def _error(debug: str) -> dict:
         return {"status": "Error", "debug": debug}
 
-    def open(self, database: str, login: str, password: str) -> dict:
+    def open(self, database: str, login: str, password: str):
+        """
+        Opens connection to given database.
+        If application is running in init mode
+        then it will create all needed database objects
+        (e.g. tables, functions)
+        """
         self.conn = psycopg2.connect(dbname=database,
                                      user=login,
                                      password=password)
@@ -45,12 +56,16 @@ class API:
 
     def _prepare_database(self):
         with self.conn.cursor() as cursor:
-            with open("drop.pgsql", "r") as f:
+            with open("queries/drop.pgsql", "r") as f:
                 cursor.execute(f.read())
-            with open("prepare_database.pgsql", "r") as f:
+            with open("queries/prepare_database.pgsql", "r") as f:
                 cursor.execute(f.read())
 
     def leader(self, timestamp: int, password: str, member: int):
+        """
+        Add leader to database, if member is existing member, then
+        validate his password, else create new one with given password
+        """
         if not self.init_mode:
             raise Exception("unauthorized leader call."
                             " Application is running in non-init mode")
@@ -82,7 +97,7 @@ class API:
 
     def _action(self, timestamp: int, member: int, password: str,
                 action: int, project: int, authority: typing.Optional[int],
-                is_support: bool,):
+                is_support: bool):
 
         self._handle_member(member, password, timestamp)
 
@@ -96,10 +111,8 @@ class API:
             self._add_project(project, authority)
         self._add_action(action, member, is_support, project)
 
-        return None
-
-    def _handle_member(self, member, password,
-                       timestamp, should_be_leader=False):
+    def _handle_member(self, member: int, password: str,
+                       timestamp: int, should_be_leader: bool = False):
         if self._is_member(member):
             if not self._is_member_active(member, timestamp):
                 raise Exception(f"member {member} is frozen")
@@ -116,12 +129,12 @@ class API:
                 raise Exception(f"leader with id {member} doesn't exist")
             self._add_member(timestamp, member, password)
 
-    def _is_member(self, member):
+    def _is_member(self, member: int) -> bool:
         with self.conn.cursor() as cursor:
             cursor.execute(queries.FIND_MEMBER, {"member_id": member})
             return bool(cursor.fetchall())
 
-    def _is_member_active(self, member, timestamp):
+    def _is_member_active(self, member: int, timestamp: str) -> bool:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 queries.VALIDATE_ACTIVE_STATUS,
@@ -130,9 +143,9 @@ class API:
                     "current_timestamp": timestamp
                 },
             )
-            return cursor.fetchone()[0]
+            return bool(cursor.fetchone()[0])
 
-    def _update_member_last_act(self, member, timestamp):
+    def _update_member_last_act(self, member: int, timestamp: int):
         with self.conn.cursor() as cursor:
             cursor.execute(
                 queries.UPDATE_MEMBER_LAST_ACT,
@@ -142,7 +155,7 @@ class API:
                 },
             )
 
-    def _validate(self, member, password):
+    def _validate(self, member: int, password: str) -> bool:
         with self.conn.cursor() as cursor:
             cursor.execute(queries.VALIDATE_PASSWORD,
                            {
@@ -150,9 +163,9 @@ class API:
                                "member_id": member
                            })
             (result) = cursor.fetchone()
-        return result[0]
+        return bool(result[0])
 
-    def _is_member_leader(self, member):
+    def _is_member_leader(self, member: int):
         with self.conn.cursor() as cursor:
             cursor.execute(queries.FIND_LEADER,
                            {
@@ -160,7 +173,7 @@ class API:
                            })
             return bool(cursor.fetchone())
 
-    def _add_member(self, timestamp, member, password):
+    def _add_member(self, timestamp: int, member: int, password: str):
         with self.conn.cursor() as cursor:
             cursor.execute(
                 queries.ADD_MEMBER,
@@ -307,6 +320,6 @@ if __name__ == "__main__":
     try:
         for line in sys.stdin:
             api_call = json.loads(line)
-            print(api.call(api_call))
+            print(json.dumps(api.call(api_call)))
     finally:
         api.close()

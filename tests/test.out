@@ -1,0 +1,12 @@
+{"status": "OK"}
+{"status": "OK"}
+{"status": "OK"}
+{"status": "OK"}
+{"status": "OK"}
+{"status": "OK"}
+{"status": "OK", "data": [[500, "protest", 5000, 10000, 1, 1], [600, "support", 5000, 10000, 0, 1]]}
+{"status": "Error"}
+{"status": "Error"}
+{"status": "Error"}
+{"status": "OK", "data": [[1, 0, 2], [2, 1, 0], [3, 0, 0]]}
+{"status": "OK", "data": [[3, 1, 2, "true"]]}
