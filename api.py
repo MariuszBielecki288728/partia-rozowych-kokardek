@@ -283,7 +283,7 @@ class API:
                 {
                     "is_support": type == "support",
                     "project_id": project,
-                    "aauthority_id": authority
+                    "authority_id": authority
                 }
             )
             return list(map(list, cursor))
