@@ -1,12 +1,16 @@
 { "open": { "database": "projekt", "login": "app", "password": "qwerty"}}
-{ "protest": { "timestamp": 1557475700, "password": "123", "member": 3, "action":500, "project":5000, "authority":10000}}
-{ "support": { "timestamp": 1557475701, "password": "123", "member": 3, "action":600, "project":5000}}
+{ "protest": { "timestamp": 1557475700, "password": "123", "member": 3, "action": 500, "project": 5000, "authority": 10000}}
+{ "support": { "timestamp": 1557475701, "password": "123", "member": 3, "action": 600, "project": 6000, "authority": 20000}}
+{ "support": { "timestamp": 1557475701, "password": "123", "member": 4, "action":3, "project":5000}}
 { "upvote": { "timestamp": 1557475702, "password": "asd", "member": 2, "action":500}}
 { "downvote": { "timestamp": 1557475703, "password": "abc", "member": 1, "action":500}}
 { "downvote": { "timestamp": 1557475704, "password": "abc", "member": 1, "action":600}}
 { "actions": { "timestamp": 1557475706, "password": "abc", "member": 1}}
+{ "actions": { "timestamp": 1557475706, "password": "abc", "member": 1, "authority": 20000}}
 { "projects": { "timestamp": 1557475708, "password": "abs", "member": 1}} 
 { "projects": { "timestamp": 1557475708, "password": "abf", "member": 1}} 
-{ "projects": { "timestamp": 1557475708, "password": "123", "member": 3}} 
+{ "projects": { "timestamp": 1557475708, "password": "123", "member": 3}}
 { "votes": { "timestamp": 1557475705, "password": "abc", "member": 1}}
 { "trolls": { "timestamp": 1557477055 }}
+{ "trolls": { "timestamp": 1589068800 }}
+{ "projects": { "timestamp": 1589068800, "password": "abs", "member": 1}} 
