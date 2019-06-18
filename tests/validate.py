@@ -12,7 +12,7 @@ parser.add_argument("expected", help="expected SUT output file")
 args = parser.parse_args()
 print(args.actual, args.expected)
 
-print("NOTE: debug field is ignored\n")
+print("NOTE: debug field is ignored")
 with open(args.test, "r") as test,\
      open(args.actual, 'r') as actual,\
      open(args.expected, 'r') as expected:
